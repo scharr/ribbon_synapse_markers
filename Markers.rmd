@@ -1,0 +1,375 @@
+---
+title: "Ribbon Synapse Markers"
+author: "Alex Scharr"
+date: "5/3/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+One of the projects in our lab is looking at the ribbon synapses of hair cells, the cells of the inner ear that detect sound. These synapses have a specialized structure and are able to release neurotransmitters at high rates for sustained periods of time. This is important because each hair cell must always be able to communicate to the central nervous system that it has detected a sound, and it must also somehow communicate how loud that sound is. One way that it can communicate the loudness of a sound is by having different types of nerves connected to it. Some nerves "fire" only when they receive a large sustained signal, and some may "fire" at the slightest change. It has been observed in other species, like cats, that these nerves synapse onto the hair cells at different locations depending on whether or not they fire easily or not. 
+
+In this experiment, my labmate dissected the hair cells of mice, and used fluorescent tags (or markers) to mark the location of both ribbon synapses and the nerves connected to the hair cells. We then needed to explore the data to see if there were any patterns in the characteristics of either the ribbons, the nerves, or their particular combinations, that might correspond to the sensitive vs less sensitive synapses. 
+
+The data my labmate provided was the X, Y, and Z locations of either the marker for the ribbon synapse, CTBP2, and the post-synaptic nerve, GLUR, from multiple hair cells. At this stage, the markers were not separated by hair cell, but simply aggregated. Ribbon and synapse pairs were identified by locating the markers closest to each other. Other data included the volumes of each of the markers and/or pairs. 
+
+### Read in data
+First I read in the data and add some columns such as the ratio of the volumns between GLUR and CTBP2, as well as categorizing the locations of the markers as "high" or "low," and the volumes as "big" or "small."
+```{r setup, include=FALSE}
+library(readr)
+library(ggplot2)
+library(factoextra)
+markers <- read_csv("markers.csv", 
+                    col_types = cols(Marker = col_factor(levels = c("glur", 
+                                                                    "ctbp2")), Pair.Volume = col_number(), 
+                                     PairID = col_integer(), Partner.Volume = col_number(), 
+                                     Volume = col_number(), X = col_number(), 
+                                     Y = col_number(), Z = col_number()))
+markers = data.frame(markers)
+markers[,"Volume.Ratio"] = rep(markers[which(markers$Marker == "ctbp2"),"Volume"]/markers[which(markers$Marker == "glur"),"Volume"],2)
+markers[,"High.Low"] = ifelse(markers$Y >= 70, "high","low")
+markers[,"Big.Small"] = ifelse(markers$Volume>=.5,"big","small")
+
+```
+
+### Visualization of markers in space 
+Here are the locations and the sizes of the markers, GLUR and CTBP2 in X and Y. These cover about ten cells in one horizontal row, but I did not have the data indicating which markers belonged to which cell, so they are presented here in aggregate. The plot covers about ten cells "wide" and one cell "deep."
+```{r, fig.height=4}
+p = ggplot(data = markers)+
+  geom_point(aes(x = X,
+                 y = Y,
+                 color = Marker,
+                 size = Volume),
+             alpha = 0.75)+
+  theme_dark()+
+  coord_fixed(ratio = 2.5)+
+  ggtitle("GLUR and CTBP2 in X, Y space")
+p
+```
+
+Here are the locations and the sizes of the markers, GLUR and CTBP2 in Z and Y. These cover about ten cells in one horizontal row, but now as viewed from the side, looking "down the row." So plot is one cell "wide" and ten cells "deep." 
+```{r, fig.height=4}
+p = ggplot(data = markers)+
+  geom_point(aes(x = Z,
+                 y = Y,
+                 color = Marker,
+                 size = Volume),
+             alpha = 0.75)+
+  theme_dark()+
+  coord_fixed(ratio = 2.5)+
+  ggtitle("GLUR and CTBP2 in Y, Z space")
+p
+```
+
+### Exploration of volume:
+```{r, echo = FALSE}
+p = ggplot(data = markers)+
+  geom_point(aes(x = Z,
+                 y = Y,
+                 color = Volume))+
+  scale_color_distiller(palette = "Spectral")+
+  facet_wrap(~Marker)+
+  theme_dark()+
+  ggtitle("Glur and ctbp2 in Y, Z space, colored by volume")
+p
+
+p = ggplot(data = markers,
+           aes(x = Y,
+               y = Volume,
+               color = Marker))+
+  geom_point()+
+  geom_smooth(method=lm,
+              color = "black")+
+  facet_wrap(~Marker)+
+  ggtitle("Glur and ctbp2, Volume by Y location, with trend lines")
+p
+```
+
+Glur trends smaller when it is higher in Z. There is no strong trend for ctbp2.
+
+### Statistics on linear regression of glur volume as a function of Y
+There is a statistically significant relationship between glur volume and Y position.
+```{r, echo= FALSE}
+fit = lm(Volume~Y, data = markers[which(markers$Marker == "glur"),c("Volume","Y")])
+summary(fit)
+```
+
+### Statistics on linear regression of ctbp2 volume as a function of Y
+There is NOT a statistically significant relationship between ctbp2 volume and Y position.
+```{r, echo= FALSE}
+fit = lm(Volume~Y, data = markers[which(markers$Marker == "ctbp2"),c("Volume","Y")])
+summary(fit)
+```
+
+```{r, echo = FALSE}
+p = ggplot()+
+  geom_histogram(data = markers,
+                 aes(x = Volume,
+                     fill = Marker),
+                 binwidth = .02,
+                 position = "identity",
+                 alpha = .5)+
+  facet_wrap(~Marker)+
+  ggtitle("Distribution of glur and ctbp2 volume")
+p
+```
+Volumes of glur and ctbp2 are not distributed the same. Glur has a larger more even range of volumes, whereas ctbp2 is generally smaller. 
+
+## Exploring volume ratio
+
+```{r, echo = FALSE}
+
+# p = ggplot(data = data.frame(glur.Volume = markers[which(markers$Marker == "glur"),"Volume"],
+#                  ctbp2.Volume = markers[which(markers$Marker == "ctbp2"),"Volume"]),
+#            aes(x = glur.Volume,
+#                  y = ctbp2.Volume))+
+#   geom_point()+
+#   geom_smooth(method=lm,
+#               color = "black")
+# p
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),])+
+  geom_point(aes(x = Z,
+                 y = Y,
+                 color = Volume.Ratio))+
+  scale_color_distiller(palette = "Spectral")+
+  theme_dark()+
+  ggtitle("Ratio of ctbp2 to glur volume in Y, Z space")
+p
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),],
+           aes(x = Y,
+               y = Volume.Ratio))+
+  geom_point()+
+  geom_smooth(method=lm,
+              color = "black")+
+  ggtitle("Ratio of ctbp2 to glur volume as a function of Y")
+p
+
+```
+The ratio of ctbp2:glur volume trends upward as Y increases. 
+
+### Statistics on linear regression of volume ratio as a function of Y
+There is a statistically significant relationship between volume ratio and Y position.
+```{r, echo= FALSE}
+fit = lm(Volume.Ratio~Y, data = markers[which(markers$Marker == "glur"),c("Volume.Ratio","Y")])
+summary(fit)
+```
+
+## Exploration of distance between glur and ctbp2 centers
+```{r, echo = FALSE}
+p = ggplot()+
+  geom_point(data = markers,
+           aes(x = Z,
+               y = Y,
+               color = Marker))+
+  geom_path(data = markers,
+            aes(x = Z,
+                y = Y,
+                group = PairID))
+  ggtitle("Z, Y centroid locations of GLUR and CTBP2 pairs")
+p
+
+p = p = ggplot()+
+  geom_histogram(data = markers[which(markers$Marker == "glur"),],
+                 aes(x = Pair.Distance),
+                 binwidth = .01,
+                 position = "identity",
+                 alpha = .5)+
+  ggtitle("Distribution of distances between GLUR and CTBP2 pairs")
+p
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),],
+           aes(x = Y,
+               y = Pair.Distance))+
+  geom_point()+
+  geom_smooth(method=lm,
+              color = "black")+
+  ggtitle("Distance between GLUR and CTBP2 pairs as a function of Y position")
+p
+```
+The distance between the centroids of glur and ctbp2 does not seem to change with changing Y location (or Z or X, not shown).
+
+## Exploring sum of volumes of glur and ctbp2
+```{r, echo = FALSE}
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),])+
+  geom_point(aes(x = Z,
+                 y = Y,
+                 color = Pair.Volume))+
+  scale_color_distiller(palette = "Spectral")+
+  theme_dark()+
+  ggtitle("Sum of ctbp2 and glur volume (color) in Z, Y space")
+p
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),],
+           aes(x = Y,
+               y = Pair.Volume))+
+  geom_point()+
+  geom_smooth(method=lm,
+              color = "black")+
+  ggtitle("Sum of ctbp2 and glur volumes as a function of Y position")
+p
+
+# p = ggplot(data = markers,
+#            aes(x = Volume,
+#                y = Pair.Volume))+
+#   geom_point()+
+#   geom_smooth(method=lm,
+#               color = "black")+
+#   facet_wrap(~Marker)
+#   ggtitle("Pair volume as a function of individual marker volume")
+# p
+```
+The sum of the volumes of glur and ctbp2 pairs does not change much, but may trend downward with increasing Y.
+
+### Statistics on linear regression of glur volume as a function of Y
+There is a statistically significant relationship between pair volume and Y position.
+```{r}
+fit = lm(Pair.Volume~Y, data = markers[which(markers$Marker == "glur"),c("Pair.Volume","Y")])
+summary(fit)
+```
+
+## Suggestion for possible grouping: big vs small glur volumes
+
+You can split glur volumes into two categories "big" >= .5 and "small" < .5, and see that they are distributed differently along the Y axis. 
+
+```{r, echo = FALSE}
+p = ggplot()+
+  geom_histogram(data = markers[which(markers$Volume < .5),],
+                 aes(x = Y,
+                     fill = Marker),
+                 binwidth = .4,
+                 position = "identity",
+                 alpha = .75)+ #darkers
+  geom_histogram(data = markers[which(markers$Volume >= .5),],
+                 aes(x = Y,
+                     fill = Marker),
+                 binwidth = .4,
+                 position = "identity",
+                 alpha = .25)+ #lighter
+  facet_wrap(~Marker)+
+  ggtitle("Distribution of smaller (< 0.5, darker) volumes of glur and ctbp2 across Y")
+p
+
+p = ggplot(data = markers[which(markers$Marker == "glur"),])+
+  geom_point(aes(x = Z,
+                 y = Y,
+                 color = ifelse(Volume>=.5,"Big","Small")))+
+  theme_classic()+
+  ggtitle("Location in Z, Y of big (>0.5) vs small (<0.5), glur volumes")
+p
+```
+
+## Suggestion for population comparisons: Y >= 70, vs Y < 70
+
+I think that doing a regression for Volume against Y location gives more information, but you can also find a statistically significant difference in the mean volumes of glur above and below Y = 70.
+
+```{r, echo = FALSE}
+p = ggplot(data = markers[which(markers$Marker == "glur"),],
+           aes(x = High.Low,
+                  y = Volume))+
+  geom_jitter(width = 0.2)+
+  stat_summary(color = "red",  geom = "point", shape = 19, size = 3)
+p
+```
+
+```{r, echo= FALSE}
+
+paste("mean +/- SD glur volume high:",round(mean(markers[which(markers$Marker == "glur" & markers$High.Low == "high"),"Volume"]),3),"+/-",round(sd(markers[which(markers$Marker == "glur" & markers$High.Low == "high"),"Volume"]),3))
+
+paste("mean +/- SD glur volume low:",round(mean(markers[which(markers$Marker == "glur" & markers$High.Low == "low"),"Volume"]),3), "+/-", round(sd(markers[which(markers$Marker == "glur" & markers$High.Low == "low"),"Volume"]),3))
+
+high = markers[which(markers$Marker == "glur" & markers$High.Low == "high"),"Volume"]
+low = markers[which(markers$Marker == "glur" & markers$High.Low == "low"),"Volume"]
+t.test(high, low)
+```
+
+
+## Principle components analysis
+
+Trying PCA to see if variance can be better described by principle components.
+```{r}
+library(class)
+glur.pc = prcomp(markers[which(markers$Marker == "glur"),c("Y","Z","Partner.Volume","Pair.Distance")], center = TRUE, scale. = TRUE) #Volume, Volume.Ratio
+print(glur.pc)
+
+eig.val <- get_eigenvalue(glur.pc)
+print(eig.val)
+
+fviz_eig(glur.pc, addlabels = TRUE, ylim = c(0, 50))
+## code below does same thing as fviz_eig()
+# glur.pc.var = glur.pc$sdev^2
+# prop.glur.pc.var = glur.pc.var/sum(glur.pc.var)
+# p = plot(prop.glur.pc.var, xlab = "Principal Component",
+#              ylab = "Proportion of Variance Explained",
+#              type = "b")
+# p
+var <- get_pca_var(glur.pc)
+fviz_pca_var(glur.pc, 
+             axes = c(1,2),
+             col.var = "black")
+fviz_pca_var(glur.pc, 
+             axes = c(1,3),
+             col.var = "black")
+library("corrplot")
+corrplot(var$cos2, is.corr=FALSE)
+
+# Create a grouping variable using kmeans
+# Create 3 groups of variables (centers = 3)
+# set.seed(123)
+# res.km <- kmeans(var$coord, centers = 3, nstart = 25)
+# grp <- as.factor(res.km$cluster)
+# # Color variables by groups
+# fviz_pca_var(glur.pc, col.var = grp, 
+#              palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+#              legend.title = "Cluster")
+
+ind <- get_pca_ind(glur.pc)
+fviz_pca_ind(glur.pc, 
+             axes = c(1,2),
+             geom.ind = "point",
+             #habillage=markers[which(markers$Marker == "glur"),c("Big.Small")],
+             col.ind = markers[which(markers$Marker == "glur"),c("Volume")],
+             gradient.cols = "Spectral",
+             title = "Colored by glur volume",
+             ggtheme = theme_dark())
+
+test = ind$coord[,1:2]
+test.knn = knn(train = test, test = test, cl = as.factor(markers[which(markers$Marker == "glur"),"Big.Small"]), k = 5)
+
+fviz_pca_ind(glur.pc, 
+             axes = c(1,3),
+             geom.ind = "point",
+             #habillage=test.knn,
+             col.ind = as.factor(markers[which(markers$Marker == "glur"),"Big.Small"]),
+             title = "Colored by big (>= .5) vs small (< .5) classification",
+             ggtheme = theme_dark())
+
+fviz_pca_ind(glur.pc, 
+             axes = c(1,3),
+             geom.ind = "point",
+             col.ind = markers[which(markers$Marker == "glur"),c("Volume")],
+             gradient.cols = "Spectral",
+             title = "Colored by glur Volume",
+             ggtheme = theme_dark())
+
+fviz_pca_ind(glur.pc, 
+             axes = c(1,3),
+             geom.ind = "point",
+             col.ind = markers[which(markers$Marker == "glur"),c("Y")],
+             gradient.cols = "Spectral",
+             title = "Colored by glur Volume",
+             ggtheme = theme_dark())
+
+fviz_pca_ind(glur.pc, 
+             axes = c(1,3),
+             geom.ind = "point",
+             col.ind = markers[which(markers$Marker == "glur"),c("Z")],
+             gradient.cols = "Spectral",
+             title = "Colored by glur Volume",
+             ggtheme = theme_dark())
+```
+
+After exploring the data, it seems like separating the data into groups that may correspond to sensitive vs non-sensitive synapses based on criteria like volume, volume ratio, total volume, etc in ZY space might not be possible, because the markers were spread across multiple cells that were not closely aligned enough in X. That's not to say there were no trends. The strongest trend seemed to be GLUR volume along the Y axis. GLUR gets smaller further up in Y. The distributions of the volumes of GLUR and CTBP2 were also different, with CTBP2 being generally smaller than GLUR.
+
